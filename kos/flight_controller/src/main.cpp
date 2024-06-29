@@ -16,6 +16,51 @@
 #define RETRY_DELAY_SEC 1
 #define RETRY_REQUEST_DELAY_SEC 5
 #define FLY_ACCEPT_PERIOD_US 500000
+#define EARTH_RADIUS 6371000
+
+uint32_t commandNum1 = 0; // тут хранятся количество команд
+MissionCommand *commands1 = NULL; // команды
+struct coridor // коридор от одной точки до другой
+{
+    CommandWaypoint n1; // первая точка
+    CommandWaypoint n2; //вторая
+
+    double degreesToRadians(double degrees) // переводит градусы в радианы
+     {
+    return degrees * M_PI / 180;
+     }
+
+    double distance(double lat1, double lon1, double lat2, double lon2) // расстояние между двумя точками на земле
+     {
+    double phi1 = degreesToRadians(lat1);
+    double phi2 = degreesToRadians(lat2);
+    double deltaPhi = degreesToRadians(lat2 - lat1);
+    double deltaLambda = degreesToRadians(lon2 - lon1);
+
+    double a = sin(deltaPhi / 2) * sin(deltaPhi / 2) +cos(phi1) * cos(phi2) *sin(deltaLambda / 2) * sin(deltaLambda / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return EARTH_RADIUS * c;
+      }
+
+      double distance_to_trajectory(double drone_lat,double drone_lon) // минимальное расстояние от точки до коридора
+      {
+        
+          double d1=distance(drone_lat,drone_lon,n1.latitude* 1e-7,n1.longitude*1e-7);
+          double d2=distance(drone_lat,drone_lon,n2.latitude*1e-7,n2.longitude*1e-7);
+          double d=distance(n1.latitude*1e-7,n1.longitude*1e-7,n2.latitude*1e-7,n2.longitude*1e-7);
+          
+          double s = (d1 + d2 + d) / 2;
+          return (2 * sqrt(s * (s - d) * (s - d1) * (s - d2))) / d;
+      }
+
+      bool check_coridor(double drone_lat,double drone_lon,double max_distance) // проверка выхода за коридор
+      {
+          return distance_to_trajectory(drone_lat,drone_lon)<=max_distance;
+      }
+    
+};
+coridor *coridors = NULL; // коридоры
 
 int sendSignedMessage(char* method, char* response, char* errorMessage, uint8_t delay) {
     char message[512] = {0};
@@ -82,6 +127,8 @@ int main(void) {
         if (sendSignedMessage("/api/fmission_kos", missionResponse, "mission", RETRY_DELAY_SEC) && parseMission(missionResponse)) {
             fprintf(stderr, "[%s] Info: Successfully received mission from the server\n", ENTITY_NAME);
             printMission();
+             commands1=com(); // беру команды из mission.cpp
+             commandNum1=numcom(); // беру количество команд
             break;
         }
         sleep(RETRY_REQUEST_DELAY_SEC);
@@ -126,8 +173,72 @@ int main(void) {
     //The flight is need to be controlled from now on
     //Also we need to check on ORVD, whether the flight is still allowed or it is need to be paused
 
+    int32_t k=0; // количество waypoint и home
+    for(int i=0;i<commandNum1;i++)
+    {
+      if((commands1[i].type==WAYPOINT or commands1[i].type==HOME)) // вывод всех путевых точек, считая и home
+      {
+      fprintf(stderr," Waypoint or Home %d latitude:[%d] longitude:[%d] altitude: [%d]\n",k+1,commands1[i].content.waypoint.latitude,commands1[i].content.waypoint.longitude,commands1[i].content.waypoint.altitude);
+      k=k+1;
+      }
+    }
+
+    int32_t count_coridor=k-1; //количество коридоров
+    coridors = (coridor*)malloc(count_coridor * sizeof(coridor));
+    int check=1;
+    for(int i=0,j=0;i<count_coridor,j<commandNum1;j++) // заполняю массив коридоров
+    {
+        if((commands1[j].type==WAYPOINT or commands1[j].type==HOME) and check==1)
+        {
+           coridors[i].n1.latitude=commands1[j].content.waypoint.latitude;
+           coridors[i].n1.longitude=commands1[j].content.waypoint.longitude;
+           coridors[i].n1.altitude=commands1[j].content.waypoint.altitude;
+           check=0;
+        }
+        else if((commands1[j].type==WAYPOINT or commands1[j].type==HOME) and check==0)
+        {
+           coridors[i].n2.latitude=commands1[j].content.waypoint.latitude;
+           coridors[i].n2.longitude=commands1[j].content.waypoint.longitude;
+           coridors[i].n2.altitude=commands1[j].content.waypoint.altitude;
+           j--;
+           i++;
+           fprintf(stderr,"Coridor %d: mission %d to mission %d\n",i,j,j+1);
+           check=1;
+        }
+    }
+
+    int32_t x,y,z; // географические координаты
+    int32_t count=0; // счетчик коридоров
     while (true)
-        sleep(1000);
+    {
+        getCoords(x,y,z);
+        if(x>0 and y>0 and z>0)// чтобы небыло нулевых координат, когда дрон настравиается 
+        {
+        // если дрон находится в пределах двух коридоров, текущего или соседнего, то все ок
+        if((coridors[count].check_coridor(x*1e-7,y*1e-7,5.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,5.0) ) and count<count_coridor-1)
+        {
+            // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
+            fprintf(stderr,"coridor %d Vse good\n",count+1);
+            if(coridors[count+1].check_coridor(x*1e-7,y*1e-7,5.0) and coridors[count].distance_to_trajectory(x*1e-7,y*1e-7)>=coridors[count+1].distance_to_trajectory(x*1e-7,y*1e-7))
+            {
+                count++;
+            }
+        }
+        else if((coridors[count].check_coridor(x*1e-7,y*1e-7,5.0)) and count==count_coridor-1)
+        {
+            fprintf(stderr,"last coridor %d Vse good\n",count+1);
+        }
+        else // если вышел за пределы
+        {
+            fprintf(stderr,"Vse ploxo  \n");
+        }
+         //вывод координат
+        fprintf(stderr,"»»»»»»>\n");
+        fprintf(stderr,"latitude:[%d] longitude:[%d] altitude: [%d]\n",x,y,z);
+        sleep(3);
+        }
+    }
+
 
     return EXIT_SUCCESS;
 }
