@@ -236,7 +236,7 @@ int main(void) {
         }
         else if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0)) and count==count_coridor-1)
         {
-            fprintf(stderr,"last coridor %d Vse good\n",count+1);
+            fprintf(stderr,"last coridor %d Vse good pogreshnost %f \n",count+1,coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
         }
         else // если вышел за пределы
         {
