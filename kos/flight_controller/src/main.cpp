@@ -62,7 +62,7 @@ struct coridor // коридор от одной точки до другой
       bool check_full_coridor(double drone_lat,double drone_lon,double max_distance)
       {
         max_distance=max_distance*(1/111111);
-        return (((n1.latitude-max_distance)<=drone_lat<=(n2.latitude+max_distance) or (n1.latitude + max_distance)>=drone_lat>=(n2.latitude - max_distance)) and 
+        return (((n1.latitude)<=drone_lat<=(n2.latitude) or (n1.latitude )>=drone_lat>=(n2.latitude )) and 
         (n1.longitude-max_distance<=drone_lon<=n2.longitude+max_distance or n1.longitude+max_distance>=drone_lon>=n2.longitude-max_distance));
       }
     
@@ -224,13 +224,12 @@ int main(void) {
              //вывод координат
         fprintf(stderr,"»»»»»»>\n");
         fprintf(stderr,"latitude:[%d] longitude:[%d] altitude: [%d]\n",x,y,z);
-        sleep(2);
         // если дрон находится в пределах двух коридоров, текущего или соседнего, то все ок
         if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) ) and count<count_coridor-1)
         {
             // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
             fprintf(stderr,"coridor %d pogreshnost %f Vse good\n",count+1, coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
-            if( (coridors[count].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0)) or (!coridors[count].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0)) )
+            if( coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) )
             {
                 count++;
             }
@@ -241,7 +240,7 @@ int main(void) {
         }
         else // если вышел за пределы
         {
-            fprintf(stderr,"Vse ploxo  \n");
+            fprintf(stderr," coridor %d Vse ploxo pogreshnost %f  \n",count+1, coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
             int32_t p=0;
             while(!pauseFlight())
             {
@@ -253,7 +252,9 @@ int main(void) {
             }
         }
         }
+        sleep(2);
     }
+    
 
 
     return EXIT_SUCCESS;
