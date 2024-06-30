@@ -51,7 +51,7 @@ struct coridor // коридор от одной точки до другой
           double d=distance(n1.latitude*1e-7,n1.longitude*1e-7,n2.latitude*1e-7,n2.longitude*1e-7);
           
           double s = (d1 + d2 + d) / 2;
-          return (2 * sqrt(s * (s - d) * (s - d1) * (s - d2))) / d;
+          return (2 * sqrt(s * (s - d) * (s - d1) * (s - d2))) / d; //по Герону
       }
 
       bool check_coridor(double drone_lat,double drone_lon,double max_distance) // проверка выхода за коридор
@@ -173,12 +173,12 @@ int main(void) {
     //The flight is need to be controlled from now on
     //Also we need to check on ORVD, whether the flight is still allowed or it is need to be paused
 
-    int32_t k=0; // количество waypoint и home
+    int32_t k=0; // количество waypoint 
     for(int i=0;i<commandNum1;i++)
     {
-      if((commands1[i].type==WAYPOINT or commands1[i].type==HOME)) // вывод всех путевых точек, считая и home
+      if((commands1[i].type==WAYPOINT )) // вывод всех путевых точек
       {
-      fprintf(stderr," Waypoint or Home %d latitude:[%d] longitude:[%d] altitude: [%d]\n",k+1,commands1[i].content.waypoint.latitude,commands1[i].content.waypoint.longitude,commands1[i].content.waypoint.altitude);
+      fprintf(stderr," Waypoint  %d latitude:[%d] longitude:[%d] altitude: [%d]\n",k+1,commands1[i].content.waypoint.latitude,commands1[i].content.waypoint.longitude,commands1[i].content.waypoint.altitude);
       k=k+1;
       }
     }
@@ -188,14 +188,14 @@ int main(void) {
     int check=1;
     for(int i=0,j=0;i<count_coridor,j<commandNum1;j++) // заполняю массив коридоров
     {
-        if((commands1[j].type==WAYPOINT or commands1[j].type==HOME) and check==1)
+        if((commands1[j].type==WAYPOINT ) and check==1)
         {
            coridors[i].n1.latitude=commands1[j].content.waypoint.latitude;
            coridors[i].n1.longitude=commands1[j].content.waypoint.longitude;
            coridors[i].n1.altitude=commands1[j].content.waypoint.altitude;
            check=0;
         }
-        else if((commands1[j].type==WAYPOINT or commands1[j].type==HOME) and check==0)
+        else if((commands1[j].type==WAYPOINT ) and check==0)
         {
            coridors[i].n2.latitude=commands1[j].content.waypoint.latitude;
            coridors[i].n2.longitude=commands1[j].content.waypoint.longitude;
@@ -212,30 +212,39 @@ int main(void) {
     while (true)
     {
         getCoords(x,y,z);
-        if(x>0 and y>0 and z>0)// чтобы небыло нулевых координат, когда дрон настравиается 
+        if((x!=0 and x!=commands1[0].content.waypoint.latitude) and (y!=0 and y!=commands1[0].content.waypoint.longitude) and (z!=0 and z!=commands1[0].content.waypoint.altitude))// чтобы небыло нулевых координат, когда дрон настравиается 
         {
+             //вывод координат
+        fprintf(stderr,"»»»»»»>\n");
+        fprintf(stderr,"latitude:[%d] longitude:[%d] altitude: [%d]\n",x,y,z);
+        sleep(2);
         // если дрон находится в пределах двух коридоров, текущего или соседнего, то все ок
-        if((coridors[count].check_coridor(x*1e-7,y*1e-7,5.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,5.0) ) and count<count_coridor-1)
+        if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) ) and count<count_coridor-1)
         {
             // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
-            fprintf(stderr,"coridor %d Vse good\n",count+1);
-            if(coridors[count+1].check_coridor(x*1e-7,y*1e-7,5.0) and coridors[count].distance_to_trajectory(x*1e-7,y*1e-7)>=coridors[count+1].distance_to_trajectory(x*1e-7,y*1e-7))
+            fprintf(stderr,"coridor %d  Vse good\n",count+1);
+            if(coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) and coridors[count].distance(x*1e-7,y*1e-7,coridors[count].n2.latitude*1e-7,coridors[count].n2.longitude*1e-7)<=10 )
             {
                 count++;
             }
         }
-        else if((coridors[count].check_coridor(x*1e-7,y*1e-7,5.0)) and count==count_coridor-1)
+        else if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0)) and count==count_coridor-1)
         {
             fprintf(stderr,"last coridor %d Vse good\n",count+1);
         }
         else // если вышел за пределы
         {
             fprintf(stderr,"Vse ploxo  \n");
+            int32_t p=0;
+            while(!pauseFlight())
+            {
+              p++;
+              if(p==10)
+              {
+                int32_t z=setKillSwitch(0);
+              }
+            }
         }
-         //вывод координат
-        fprintf(stderr,"»»»»»»>\n");
-        fprintf(stderr,"latitude:[%d] longitude:[%d] altitude: [%d]\n",x,y,z);
-        sleep(3);
         }
     }
 
