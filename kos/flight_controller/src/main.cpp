@@ -54,9 +54,16 @@ struct coridor // коридор от одной точки до другой
           return (2 * sqrt(s * (s - d) * (s - d1) * (s - d2))) / d; //по Герону
       }
 
-      bool check_coridor(double drone_lat,double drone_lon,double max_distance) // проверка выхода за коридор
+      bool check_coridor(double drone_lat,double drone_lon,double max_distance) // проверка выхода за коридор (ограничение в max_distance метров)
       {
           return distance_to_trajectory(drone_lat,drone_lon)<=max_distance;
+      }
+
+      bool check_full_coridor(double drone_lat,double drone_lon,double max_distance)
+      {
+        max_distance=max_distance*(1/111111);
+        return (((n1.latitude-max_distance)<=drone_lat<=(n2.latitude+max_distance) or (n1.latitude + max_distance)>=drone_lat>=(n2.latitude - max_distance)) and 
+        (n1.longitude-max_distance<=drone_lon<=n2.longitude+max_distance or n1.longitude+max_distance>=drone_lon>=n2.longitude-max_distance));
       }
     
 };
@@ -222,8 +229,8 @@ int main(void) {
         if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) ) and count<count_coridor-1)
         {
             // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
-            fprintf(stderr,"coridor %d  Vse good\n",count+1);
-            if(coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) and coridors[count].distance(x*1e-7,y*1e-7,coridors[count].n2.latitude*1e-7,coridors[count].n2.longitude*1e-7)<=10 )
+            fprintf(stderr,"coridor %d pogreshnost %f Vse good\n",count+1, coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
+            if( (coridors[count].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0)) or (!coridors[count].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0)) )
             {
                 count++;
             }
