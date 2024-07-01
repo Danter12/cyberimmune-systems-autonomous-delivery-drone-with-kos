@@ -183,7 +183,7 @@ int main(void) {
     int32_t k=0; // количество waypoint 
     for(int i=0;i<commandNum1;i++)
     {
-      if((commands1[i].type==WAYPOINT )) // вывод всех путевых точек
+      if((commands1[i].type==WAYPOINT  or commands1[i].type==HOME )) // вывод всех путевых точек
       {
       fprintf(stderr," Waypoint  %d latitude:[%d] longitude:[%d] altitude: [%d]\n",k+1,commands1[i].content.waypoint.latitude,commands1[i].content.waypoint.longitude,commands1[i].content.waypoint.altitude);
       k=k+1;
@@ -195,14 +195,14 @@ int main(void) {
     int check=1;
     for(int i=0,j=0;i<count_coridor,j<commandNum1;j++) // заполняю массив коридоров
     {
-        if((commands1[j].type==WAYPOINT ) and check==1)
+        if((commands1[j].type==WAYPOINT or commands1[j].type==HOME ) and check==1)
         {
            coridors[i].n1.latitude=commands1[j].content.waypoint.latitude;
            coridors[i].n1.longitude=commands1[j].content.waypoint.longitude;
            coridors[i].n1.altitude=commands1[j].content.waypoint.altitude;
            check=0;
         }
-        else if((commands1[j].type==WAYPOINT ) and check==0)
+        else if((commands1[j].type==WAYPOINT or commands1[j].type==HOME ) and check==0)
         {
            coridors[i].n2.latitude=commands1[j].content.waypoint.latitude;
            coridors[i].n2.longitude=commands1[j].content.waypoint.longitude;
@@ -229,7 +229,7 @@ int main(void) {
         {
             // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
             fprintf(stderr,"coridor %d pogreshnost %f Vse good\n",count+1, coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
-            if( coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0) and coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) )
+            if( coridors[count+1].check_full_coridor(x*1e-7,y*1e-7,10.0)  and  coridors[count].distance_to_trajectory(x*1e-7,y*1e-7)>coridors[count+1].distance_to_trajectory(x*1e-7,y*1e-7))
             {
                 count++;
             }
