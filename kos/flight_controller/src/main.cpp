@@ -213,7 +213,7 @@ int main(void) {
            check=1;
         }
     }
-
+     fprintf(stderr,"Coridor vsego %d\n",count_coridor);
     int32_t x,y,z; // географические координаты
     int32_t count=0; // счетчик коридоров
     while (true)
@@ -223,9 +223,9 @@ int main(void) {
         {
              //вывод координат
         fprintf(stderr,"»»»»»»>\n");
-        fprintf(stderr,"latitude:[%d] longitude:[%d] altitude: [%d]\n",x,y,z);
+        fprintf(stderr,"latitude:[%f] longitude:[%f] altitude: [%f]\n",x*1e-7,y*1e-7,z*1e-2);
         // если дрон находится в пределах двух коридоров, текущего или соседнего, то все ок
-        if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) ) and count<count_coridor-1)
+        if((coridors[count].check_coridor(x*1e-7,y*1e-7,10.0) or coridors[count+1].check_coridor(x*1e-7,y*1e-7,10.0) ) and count!=count_coridor-1)
         {
             // проверяем, где находится дрон в текущем или соседнем. Сравнение идет по минимальной длине от точки до каждого коридора
             fprintf(stderr,"coridor %d pogreshnost %f Vse good\n",count+1, coridors[count].distance_to_trajectory(x*1e-7,y*1e-7));
